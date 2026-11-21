@@ -5,3 +5,4 @@
 /hw/**/*.kicad_prl
 /hw/fab/
 .DS_Store
+/lib/
