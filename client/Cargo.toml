@@ -1,0 +1,9 @@
+[package]
+name = "buscraft"
+version = "0.0.1"
+edition = "2021"
+description = "Host client for BusCraft, an open wireless GPIB adapter"
+license = "Apache-2.0"
+repository = "https://github.com/hardcraft-ai/buscraft"
+
+[dependencies]

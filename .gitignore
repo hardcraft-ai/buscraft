@@ -1,0 +1,7 @@
+/client/target/
+/fw/build/
+/hw/**/*-backups/
+/hw/**/fp-info-cache
+/hw/**/*.kicad_prl
+/hw/fab/
+.DS_Store

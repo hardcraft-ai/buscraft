@@ -1,0 +1,7 @@
+SPDX-License-Identifier: CERN-OHL-S-2.0
+
+The hardware design files in this directory (schematics, PCB layout, BOM,
+fabrication outputs) are licensed under the CERN Open Hardware Licence
+Version 2 - Strongly Reciprocal.
+
+Full licence text: https://ohwr.org/cern_ohl_s_v2.txt
