@@ -1,6 +1,6 @@
 # BusCraft adapter firmware. Development board: NUCLEO-WBA55CG (STM32WBA55CG, BLE 5.4).
 # Based on ST's BLE_p2pServer example (Core/, STM32_WPAN/, System/ copied from it; those files keep ST's licence headers).
-#   make cube       fetch the needed parts of STM32CubeWBA into ../lib/STM32CubeWBA (sparse clone, once)
+#   make cube       fetch the needed parts of STM32CubeWBA (pinned to CUBE_REV) into ../lib/STM32CubeWBA (sparse clone, once)
 #   make            build/buscraft.bin
 #   make flash      program over ST-LINK (STM32_Programmer_CLI; STLINK=<serial> picks one probe)
 #   make console    serial console (PORT=/dev/... 115200)
@@ -13,6 +13,7 @@ CC      := $(CROSS)gcc
 OBJCOPY := $(CROSS)objcopy
 SIZE    := $(CROSS)size
 CUBE    ?= ../lib/STM32CubeWBA
+CUBE_REV := 4ccfd1526870263657ec8e0854c64cda6ed2b5da
 HAL     := $(CUBE)/Drivers/STM32WBAxx_HAL_Driver
 WPAN    := $(CUBE)/Middlewares/ST/STM32_WPAN
 COMMON  := $(CUBE)/Projects/Common/WPAN
@@ -79,7 +80,8 @@ console:
 	(stty 115200 raw -echo; cat) < $(PORT)
 
 cube:
-	git clone --depth 1 --filter=blob:none --sparse https://github.com/STMicroelectronics/STM32CubeWBA.git $(CUBE)
+	git clone --filter=blob:none --no-checkout --sparse https://github.com/STMicroelectronics/STM32CubeWBA.git $(CUBE)
+	git -C $(CUBE) checkout -q $(CUBE_REV)
 	git -C $(CUBE) sparse-checkout set --skip-checks Drivers/CMSIS Drivers/STM32WBAxx_HAL_Driver \
 	  Drivers/BSP/STM32WBAxx_Nucleo Middlewares/ST/STM32_WPAN Utilities Projects/Common
 	git -C $(CUBE) submodule update --init --depth 1 Drivers/CMSIS/Device/ST/STM32WBAxx \
