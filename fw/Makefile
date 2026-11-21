@@ -64,6 +64,8 @@ SRC := $(wildcard App/*.c) $(wildcard Core/Src/*.c) $(wildcard STM32_WPAN/App/*.
        $(WPAN)/ble/svc/Src/svc_ctl.c \
        $(addprefix $(WPAN)/link_layer/ll_sys/src/ll_sys_, cs.c dp_slp.c intf.c startup.c)
 
+all: build/buscraft.bin
+
 build/buscraft.elf: $(SRC) $(wildcard App/*.h */Inc/*.h */*/*.h */*/*/*.h) STM32WBA55CGUX_FLASH.ld Makefile
 	@mkdir -p build
 	$(CC) $(CFLAGS) $(SRC) $(LDFLAGS) -Wl,-Map=build/buscraft.map -o $@
@@ -87,4 +89,4 @@ cube:
 	git -C $(CUBE) submodule update --init --depth 1 Drivers/CMSIS/Device/ST/STM32WBAxx \
 	  Drivers/STM32WBAxx_HAL_Driver Drivers/BSP/STM32WBAxx_Nucleo Middlewares/ST/STM32_WPAN
 
-.PHONY: flash console cube
+.PHONY: all flash console cube
