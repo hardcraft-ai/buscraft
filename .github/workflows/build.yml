@@ -42,6 +42,27 @@ jobs:
           name: buscraft-${{ matrix.name }}
           path: buscraft-${{ matrix.name }}.zip
 
+  firmware:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fw
+    steps:
+      - uses: actions/checkout@v4
+      - name: install toolchain
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends gcc-arm-none-eabi libnewlib-arm-none-eabi
+      - uses: actions/cache@v4
+        with:
+          path: lib/STM32CubeWBA
+          key: stm32cubewba-${{ hashFiles('fw/Makefile') }}
+      - run: test -d ../lib/STM32CubeWBA/Drivers || make cube
+      - run: make
+      - run: mkdir -p ../dist && cp build/buscraft.bin build/buscraft.elf ../dist/ && cd ../dist && zip -q ../buscraft-fw.zip buscraft.bin buscraft.elf
+      - uses: actions/upload-artifact@v4
+        with:
+          name: buscraft-fw
+          path: buscraft-fw.zip
+
   hardware:
     runs-on: ubuntu-latest
     steps:
@@ -73,7 +94,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [client, hardware]
+    needs: [client, firmware, hardware]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
