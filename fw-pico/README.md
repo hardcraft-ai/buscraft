@@ -86,6 +86,8 @@ every other line is sent to the instrument at the current address. ESC (27) make
 | `++srq` | 1 when a device requests service |
 | `++clr`, `++trg`, `++loc`, `++llo` | device clear, trigger, go to local, local lockout |
 | `++ifc`, `++ren [0\|1]` | interface clear, remote enable |
+| `++lines` | state of every bus line, asserted lines in capitals |
+| `++selftest` | asserts each line alone and reports shorts or lines stuck low; run with no instrument connected |
 | `++ver`, `++help`, `++rst` | version, command list, restart |
 
 Commands without an argument print the current value.

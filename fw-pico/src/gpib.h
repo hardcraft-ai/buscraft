@@ -55,3 +55,8 @@ gpib_err_t gpib_write(uint8_t addr, const uint8_t *data, size_t n, bool eoi_last
 gpib_err_t gpib_read(uint8_t addr, uint8_t *buf, size_t max, int term, gpib_read_t *res);
 gpib_err_t gpib_spoll(uint8_t addr, uint8_t *status);
 gpib_err_t gpib_addressed(uint8_t addr, uint8_t cmd);      // UNL, MLA addr, cmd, UNL (SDC, GET, GTL)
+
+// Diagnostics
+uint32_t gpib_lines(void);           // bit per GPIO (GP0..GP15), 1 = line asserted (low)
+uint32_t gpib_selftest(int *bad);    // asserts each line alone; returns the mask of other lines that followed it,
+                                     // *bad = GPIO of the first faulty line or -1

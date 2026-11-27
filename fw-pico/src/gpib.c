@@ -152,3 +152,35 @@ gpib_err_t gpib_addressed(uint8_t addr, uint8_t cmd_byte) {
     const uint8_t cmd[] = { GPIB_UNL, GPIB_MLA(addr), cmd_byte, GPIB_UNL };
     return gpib_command(cmd, sizeof cmd);
 }
+
+uint32_t gpib_lines(void) { return ~gpio_get_all() & ALL_MASK; }
+
+static uint32_t selftest_lines(int *bad) {
+    *bad = -1;
+    gpio_set_dir_in_masked(ALL_MASK);   // release everything, including REN
+    sleep_us(50);
+    uint32_t idle = gpib_lines();
+    if (idle) {                         // a line stuck low: shorted to ground or held by an instrument
+        *bad = __builtin_ctz(idle);
+        return idle;
+    }
+    for (uint pin = 0; pin < 32; pin++) {
+        if (!(ALL_MASK & (1u << pin))) continue;
+        assert_line(pin);
+        sleep_us(20);
+        uint32_t others = gpib_lines() & ~(1u << pin);
+        release_line(pin);
+        sleep_us(20);
+        if (others) {
+            *bad = (int)pin;
+            return others;
+        }
+    }
+    return 0;
+}
+
+uint32_t gpib_selftest(int *bad) {
+    uint32_t m = selftest_lines(bad);
+    gpib_ren(true);
+    return m;
+}

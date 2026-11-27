@@ -78,10 +78,40 @@ static void set_or_show_bool(bool *v, const char *arg) {
     if (arg) *v = atoi(arg) != 0; else reply_int(*v);
 }
 
+static const char *const LINE_NAMES[16] = {
+    "DIO1", "DIO2", "DIO3", "DIO4", "DIO5", "DIO6", "DIO7", "DIO8",
+    "DAV", "NRFD", "NDAC", "EOI", "ATN", "IFC", "SRQ", "REN",
+};
+
+// One line: every bus signal with its state, asserted lines in upper case (e.g. "dio1 ... NDAC ... REN").
+static void print_lines(uint32_t m) {
+    char b[128];
+    size_t n = 0;
+    for (int i = 0; i < 16; i++) {
+        for (const char *s = LINE_NAMES[i]; *s; s++)
+            b[n++] = (m & (1u << i)) ? *s : (char)(*s >= 'A' && *s <= 'Z' ? *s + 32 : *s);
+        b[n++] = i == 15 ? '\n' : ' ';
+    }
+    b[n] = 0;
+    reply(b);
+}
+
+static void selftest(void) {
+    int bad;
+    uint32_t m = gpib_selftest(&bad);
+    if (bad < 0) { reply("selftest ok: no shorts between lines, none stuck low\n"); return; }
+    char b[64];
+    if (m & (1u << bad)) snprintf(b, sizeof b, "selftest: %s stuck low, all asserted lines:\n", LINE_NAMES[bad]);
+    else snprintf(b, sizeof b, "selftest: %s drags other lines along:\n", LINE_NAMES[bad]);
+    reply(b);
+    print_lines(m);
+}
+
 static void help(void) {
     reply("++addr [0-30]  ++auto [0|1]  ++eoi [0|1]  ++eos [0-3]  ++eot_enable [0|1]  ++eot_char [n]\n"
           "++read [eoi|n]  ++read_tmo_ms [ms]  ++spoll [addr]  ++srq  ++clr  ++trg  ++loc  ++llo  ++ifc\n"
-          "++ren [0|1]  ++mode  ++ver  ++rst  ++help\n");
+          "++ren [0|1]  ++mode  ++ver  ++rst  ++help\n"
+          "++lines (bus state, asserted in CAPITALS)  ++selftest (shorts, lines stuck low; run without instrument)\n");
 }
 
 static void plus_command(const char *line) {
@@ -135,6 +165,10 @@ static void plus_command(const char *line) {
         reply("BusCraft GPIB adapter, fw-pico " BUSCRAFT_VERSION "\n");
     } else if (is_cmd(line, "rst", &a)) {
         watchdog_reboot(0, 0, 10);
+    } else if (is_cmd(line, "lines", &a)) {
+        print_lines(gpib_lines());
+    } else if (is_cmd(line, "selftest", &a)) {
+        selftest();
     } else if (is_cmd(line, "help", &a)) {
         help();
     } else {
