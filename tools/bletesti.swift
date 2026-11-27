@@ -23,7 +23,7 @@ class Testi: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     if c.state == .poweredOn { c.scanForPeripherals(withServices: nil) }
   }
   func centralManager(_ c: CBCentralManager, didDiscover p: CBPeripheral, advertisementData a: [String: Any], rssi: NSNumber) {
-    guard let nimi = a[CBAdvertisementDataLocalNameKey] as? String ?? p.name, nimi.hasPrefix("p2pS") || nimi.hasPrefix("GPIB") else { return }
+    guard let nimi = a[CBAdvertisementDataLocalNameKey] as? String ?? p.name, nimi.hasPrefix("p2pS") || nimi.hasPrefix("GPIB") || nimi.hasPrefix("BusCraft") else { return }
     print("löytyi \(nimi) rssi \(rssi)")
     c.stopScan(); self.p = p; p.delegate = self; c.connect(p)
   }

@@ -1,7 +1,7 @@
 # Firmware for Raspberry Pi Pico W
 
 First working BusCraft build: an RP2040 board drives the GPIB bus straight from its GPIOs (open drain, no bus driver
-chips) and talks to the host over USB serial and Wi-Fi (TCP port 5025). The line protocol is the same on both.
+chips) and talks to the host over USB serial, Wi-Fi (TCP port 5025) and Bluetooth LE. The line protocol is the same on all three.
 
 ## Wiring
 
@@ -96,10 +96,24 @@ every other line is sent to the instrument at the current address. ESC (27) make
 
 Commands without an argument print the current value.
 
+## Bluetooth LE
+
+The adapter advertises as `BusCraft` with one GATT service, the same as the STM32WBA firmware:
+
+| UUID | Characteristic | Use |
+|---|---|---|
+| `B72B0001-CE61-48A9-8A39-81A476335192` | service | |
+| `B72B0002-…` | Command | write a line (`++` command or instrument data); every write ends a line |
+| `B72B0003-…` | Response | notifications with the replies |
+| `B72B0005-…` | Status | read: Wi-Fi state and address |
+
+Any BLE terminal app on a phone can configure the Wi-Fi: write `++wifi MyNetwork MyPassword` to Command and read
+Status. `tools/bletesti.swift` does the same from a Mac.
+
 ## Wi-Fi
 
 The Pico W can also join a 2.4 GHz Wi-Fi network and serve the same protocol on TCP port 5025 (raw socket, the
-usual port for instrument control). Give the network once over USB; it is stored in the Pico's flash, not in the
+usual port for instrument control). Give the network once over USB or Bluetooth; it is stored in the Pico's flash, not in the
 firmware image:
 
 ```

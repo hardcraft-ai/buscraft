@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "hardware/flash.h"
+#include "ble.h"
 #include "komento.h"
 #include "lwip/apps/mdns.h"
 #include "lwip/tcp.h"
@@ -21,7 +22,8 @@
 #define WIFI_PM CYW43_NONE_PM
 #endif
 #define CONFIG_MAGIC 0x42435731u   // "BCW1"
-#define CONFIG_OFFSET (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE)
+// Third sector from the end: BTstack keeps its bonding data in the last two (PICO_FLASH_BANK_STORAGE_OFFSET).
+#define CONFIG_OFFSET (PICO_FLASH_SIZE_BYTES - 3 * FLASH_SECTOR_SIZE)
 
 typedef struct {
     uint32_t magic;
@@ -128,16 +130,24 @@ static void start_server(void) {
 
 // ---- Wi-Fi ----
 
+static bool radio_init(void) {
+    if (radio_up) return true;
+    if (cyw43_arch_init()) return false;
+    ble_init();
+    radio_up = true;
+    return true;
+}
+
 static void connect(void) {
-    if (!cfg.ssid[0]) return;
-    if (!radio_up) {
-        if (cyw43_arch_init()) return;
+    static bool sta_up;
+    if (!cfg.ssid[0] || !radio_init()) return;
+    if (!sta_up) {      // the station netif exists only after STA mode is enabled
         cyw43_arch_enable_sta_mode();
         netif_set_hostname(netif_default, HOSTNAME);
         mdns_resp_init();
         mdns_resp_add_netif(netif_default, HOSTNAME);
         mdns_resp_add_service(netif_default, HOSTNAME, "_scpi-raw", DNSSD_PROTO_TCP, NET_PORT, NULL, NULL);
-        radio_up = true;
+        sta_up = true;
     }
     cyw43_arch_wifi_connect_async(cfg.ssid, cfg.pass[0] ? cfg.pass : NULL,
                                   cfg.pass[0] ? CYW43_AUTH_WPA2_AES_PSK : CYW43_AUTH_OPEN);
@@ -147,6 +157,7 @@ static void connect(void) {
 void net_init(void) {
     tcp_in.sink = tcp_sink;
     load_config();
+    radio_init();       // BLE is always on; Wi-Fi joins only when a network is stored
     connect();
 }
 
@@ -175,6 +186,7 @@ void net_poll(void) {
         rx_tail = (rx_tail + 1) % sizeof rx;
         komento_feed(&tcp_in, c);
     }
+    ble_poll();
 }
 
 bool net_set_wifi(const char *ssid, const char *pass) {
