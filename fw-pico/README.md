@@ -1,0 +1,75 @@
+# Firmware for Raspberry Pi Pico W
+
+First working BusCraft build: an RP2040 board drives the GPIB bus straight from its GPIOs (open drain, no bus driver
+chips) and talks to the host over USB serial. The Bluetooth LE link comes next; the line protocol stays the same.
+
+## Wiring
+
+All signals are on the Pico's left header (physical pins 1-20). GPIB pin numbers are those of the IEEE-488 connector.
+
+| GPIB pin | Signal | Pico | Pico pin |
+|---|---|---|---|
+| 1 | DIO1 | GP0 | 1 |
+| 2 | DIO2 | GP1 | 2 |
+| 3 | DIO3 | GP2 | 4 |
+| 4 | DIO4 | GP3 | 5 |
+| 13 | DIO5 | GP4 | 6 |
+| 14 | DIO6 | GP5 | 7 |
+| 15 | DIO7 | GP6 | 9 |
+| 16 | DIO8 | GP7 | 10 |
+| 6 | DAV | GP8 | 11 |
+| 7 | NRFD | GP9 | 12 |
+| 8 | NDAC | GP10 | 14 |
+| 5 | EOI | GP11 | 15 |
+| 11 | ATN | GP12 | 16 |
+| 9 | IFC | GP13 | 17 |
+| 10 | SRQ | GP14 | 19 |
+| 17 | REN | GP15 | 20 |
+| 18-24 | GND | GND | 3, 8, 13, 18 |
+| 12 | shield | GND (optional) | |
+
+The RP2040 is a 3.3 V part. A GPIB line idles at about 3.3-3.4 V, set by the instrument's terminating resistors, which
+is within the RP2040's input limit. Measure the idle voltage of a line (for example DAV, pin 6, against pin 24) on your
+instrument before connecting the Pico. If it is above 3.6 V, add a series resistor of about 220 ohms to each line.
+
+## Build and flash
+
+Needs the [Pico SDK](https://github.com/raspberrypi/pico-sdk) 2.2.0, CMake, Ninja and `arm-none-eabi-gcc`.
+
+```sh
+cd fw-pico
+cmake -S . -B build -G Ninja -DPICO_SDK_PATH=/path/to/pico-sdk
+ninja -C build
+```
+
+Hold BOOTSEL while plugging in the Pico and copy `build/buscraft-pico.uf2` to the RPI-RP2 drive. Prebuilt images are
+attached to every release.
+
+## Use
+
+The Pico shows up as a USB serial port ("BusCraft GPIB adapter"). Lines starting with `++` configure the adapter;
+every other line is sent to the instrument at the current address. ESC (27) makes the next character literal.
+
+```
+++ver
+++addr 23
+++auto 1
+*IDN?
+```
+
+| Command | Meaning |
+|---|---|
+| `++addr [n]` | instrument address 0-30 |
+| `++auto [0\|1]` | read the reply automatically after each write |
+| `++eoi [0\|1]` | assert EOI with the last byte written (default 1) |
+| `++eos [0-3]` | terminator appended to writes: 0 CR+LF, 1 CR, 2 LF, 3 none |
+| `++eot_enable [0\|1]`, `++eot_char [n]` | add a character to the output when EOI is received |
+| `++read [eoi\|n]` | read until EOI, or until character code n |
+| `++read_tmo_ms [ms]` | handshake timeout (default 1200) |
+| `++spoll [addr]` | serial poll, returns the status byte |
+| `++srq` | 1 when a device requests service |
+| `++clr`, `++trg`, `++loc`, `++llo` | device clear, trigger, go to local, local lockout |
+| `++ifc`, `++ren [0\|1]` | interface clear, remote enable |
+| `++ver`, `++help`, `++rst` | version, command list, restart |
+
+Commands without an argument print the current value.

@@ -63,6 +63,26 @@ jobs:
           name: buscraft-fw
           path: buscraft-fw.zip
 
+  firmware-pico:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install toolchain
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib ninja-build
+      - uses: actions/cache@v4
+        with:
+          path: pico-sdk
+          key: pico-sdk-2.2.0
+      - name: Pico SDK
+        run: test -d pico-sdk/src || (git clone -q --depth 1 --branch 2.2.0 https://github.com/raspberrypi/pico-sdk.git && git -C pico-sdk submodule update -q --init --depth 1)
+      - run: cmake -S fw-pico -B fw-pico/build -G Ninja -DPICO_SDK_PATH=$PWD/pico-sdk -DCMAKE_BUILD_TYPE=Release
+      - run: ninja -C fw-pico/build
+      - run: cd fw-pico/build && zip -q ../../buscraft-fw-pico.zip buscraft-pico.uf2 buscraft-pico.elf
+      - uses: actions/upload-artifact@v4
+        with:
+          name: buscraft-fw-pico
+          path: buscraft-fw-pico.zip
+
   hardware:
     runs-on: ubuntu-latest
     steps:
@@ -94,7 +114,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [client, firmware, hardware]
+    needs: [client, firmware, firmware-pico, hardware]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

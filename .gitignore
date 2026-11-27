@@ -6,3 +6,4 @@
 /hw/fab/
 .DS_Store
 /lib/
+/fw-pico/build/
