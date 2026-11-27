@@ -61,9 +61,12 @@ ninja -C build
 Hold BOOTSEL while plugging in the Pico and copy `build/buscraft-pico.uf2` to the RPI-RP2 drive. Prebuilt images are
 attached to every release.
 
+A Pico already running BusCraft can be reflashed without the button: `sh flash.sh [port]` opens the serial port at
+1200 baud, which reboots it into the bootloader, and copies the image.
+
 ## Use
 
-The Pico shows up as a USB serial port ("BusCraft GPIB adapter"). Lines starting with `++` configure the adapter;
+The Pico shows up as a USB serial port ("BusCraft GPIB"). Lines starting with `++` configure the adapter;
 every other line is sent to the instrument at the current address. ESC (27) makes the next character literal.
 
 ```

@@ -17,7 +17,7 @@ add_executable(buscraft-pico
 target_compile_definitions(buscraft-pico PRIVATE
     BUSCRAFT_VERSION="${BUSCRAFT_VERSION}"
     USBD_MANUFACTURER="Hardcraft"
-    USBD_PRODUCT="BusCraft GPIB adapter"
+    USBD_PRODUCT="BusCraft GPIB"
     PICO_STDIO_DEFAULT_CRLF=0
 )
 target_compile_options(buscraft-pico PRIVATE -Wall -Wextra -Wno-unused-parameter)
