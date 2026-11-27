@@ -19,7 +19,7 @@ int main(void) {
     net_init();
     watchdog_enable(5000, true);
 
-    static komento_input_t usb_in = { .sink = usb_sink };
+    static komento_input_t usb_in = { .sink = usb_sink, .trusted = true };
     for (;;) {
         watchdog_update();
         net_poll();

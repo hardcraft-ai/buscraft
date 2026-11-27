@@ -5,9 +5,9 @@ PRIMARY_SERVICE, GATT_SERVICE
 CHARACTERISTIC, GATT_DATABASE_HASH, READ,
 
 // BusCraft service, same UUIDs as the STM32WBA firmware.
-// Command: write a line (++ command or instrument data); every write ends a line.
+// Command: write a line (++ command or instrument data); every write ends a line. Needs an encrypted (paired) link.
 // Response: notifications with the replies. Status: one readable text line (Wi-Fi state, address).
 PRIMARY_SERVICE, B72B0001-CE61-48A9-8A39-81A476335192
-CHARACTERISTIC, B72B0002-CE61-48A9-8A39-81A476335192, WRITE | WRITE_WITHOUT_RESPONSE | DYNAMIC,
+CHARACTERISTIC, B72B0002-CE61-48A9-8A39-81A476335192, WRITE | WRITE_WITHOUT_RESPONSE | DYNAMIC | WRITE_ENCRYPTED,
 CHARACTERISTIC, B72B0003-CE61-48A9-8A39-81A476335192, NOTIFY | DYNAMIC,
 CHARACTERISTIC, B72B0005-CE61-48A9-8A39-81A476335192, READ | DYNAMIC,

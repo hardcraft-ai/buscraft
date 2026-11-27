@@ -23,6 +23,7 @@ static struct {
 } st = { .addr = 1, .autoread = false, .eoi = true, .eos = 0, .eot = false, .eot_char = '\n' };
 
 static komento_sink_t sink;   // replies go to the stream whose line is being handled
+static bool trusted;          // the stream may change Wi-Fi settings
 
 static void out(const void *p, size_t n) { sink(p, n); }
 static void reply(const char *s) { out(s, strlen(s)); }
@@ -170,17 +171,28 @@ static void plus_command(const char *line) {
         watchdog_reboot(0, 0, 10);
     } else if (is_cmd(line, "wifi", &a)) {
         char b[96];
+        if (a && !trusted) {
+            reply("error: Wi-Fi settings can only be changed over USB or Bluetooth\n");
+            return;
+        }
         if (a) {
             // "++wifi off" forgets the network; otherwise the first word is the name, the rest the password
             char ssid[33] = "", pass[64] = "";
             if (strcmp(a, "off") != 0) {
-                const char *sp = strchr(a, ' ');
-                size_t n = sp ? (size_t)(sp - a) : strlen(a);
+                // ssid is the first word, or a quoted name when it contains spaces: ++wifi "My Net" password
+                const char *s = a, *e;
+                if (*s == '"') { s++; e = strchr(s, '"'); if (!e) e = s + strlen(s); }
+                else { e = strchr(s, ' '); if (!e) e = s + strlen(s); }
+                size_t n = (size_t)(e - s);
                 if (n >= sizeof ssid) n = sizeof ssid - 1;
-                memcpy(ssid, a, n);
-                if (sp) strncpy(pass, sp + 1, sizeof pass - 1);
+                memcpy(ssid, s, n);
+                const char *p = *e == '"' ? e + 1 : e;
+                while (*p == ' ') p++;
+                strncpy(pass, p, sizeof pass - 1);
             }
-            if (!net_set_wifi(ssid, pass)) { reply("error: could not store the network settings\n"); return; }
+            bool ok = net_set_wifi(ssid, pass);
+            memset(pass, 0, sizeof pass);
+            if (!ok) { reply("error: could not store the network settings\n"); return; }
         }
         net_status(b, sizeof b);
         reply(b);
@@ -215,7 +227,9 @@ void komento_feed(komento_input_t *in, int c) {
     } else if (c == '\r' || c == '\n') {
         in->line[in->len] = 0;
         sink = in->sink;
+        trusted = in->trusted;
         komento_line(in->line, in->len);
+        memset(in->line, 0, in->len);   // the line may have carried a password
         in->len = 0;
         return;
     }

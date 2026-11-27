@@ -91,7 +91,7 @@ every other line is sent to the instrument at the current address. ESC (27) make
 | `++ifc`, `++ren [0\|1]` | interface clear, remote enable |
 | `++lines` | state of every bus line, asserted lines in capitals |
 | `++selftest` | asserts each line alone and reports shorts or lines stuck low; run with no instrument connected |
-| `++wifi [ssid password \| off]` | Wi-Fi network (see below) |
+| `++wifi [ssid password \| off]` | Wi-Fi network (see below); quote a name with spaces: `++wifi "My Net" pw` |
 | `++led [0\|1]` | the Pico's on-board LED (connection test) |
 | `++ver`, `++help`, `++rst` | version, command list, restart |
 
@@ -125,6 +125,17 @@ firmware image:
 
 The adapter announces itself as `buscraft.local` with the service `_scpi-raw._tcp`, so VISA tools can open
 `TCPIP::buscraft.local::5025::SOCKET`. One TCP client at a time; a new connection replaces the old one.
+
+### How the Wi-Fi settings are protected
+
+- They can only be set over USB or Bluetooth; the TCP socket refuses `++wifi` with arguments. The password is never
+  echoed, and the desktop app does not write it to its console.
+- Bluetooth writes need an encrypted link (LE Secure Connections, "just works" pairing): a passive listener cannot
+  read the password. The computer or phone pairs automatically on the first write.
+- In flash the name and password are encrypted with AES-128-CTR under a key derived from the board's unique id, so a
+  flash dump shows nothing readable and the image does not decrypt on another board.
+- Limit: the RP2040 has no secure key storage. Anyone holding the board can read its flash over USB and derive the
+  key. The RP2350 (Pico 2 W) fixes this with an OTP key and secure boot.
 
 Wi-Fi power saving is off by default (round trip about 3 ms instead of about 90 ms). For battery-powered builds
 configure with `-DBUSCRAFT_WIFI_POWERSAVE=ON`.

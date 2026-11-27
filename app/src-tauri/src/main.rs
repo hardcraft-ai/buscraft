@@ -85,10 +85,23 @@ async fn query(state: tauri::State<'_, App>, line: String, quiet_ms: Option<u64>
     Ok(Reply { text, ms })
 }
 
+/// Stores the Wi-Fi network on the adapter. A separate command so the password never passes through the console log.
+#[tauri::command]
+async fn set_wifi(state: tauri::State<'_, App>, ssid: String, password: String) -> Result<String, String> {
+    if ssid.contains('"') {
+        return Err("the network name cannot contain a double quote".into());
+    }
+    let mut slot = state.conn.lock().await;
+    let c = slot.as_mut().ok_or("not connected")?;
+    let line = if ssid.is_empty() { "++wifi off".to_string() } else { format!("++wifi \"{ssid}\" {password}") };
+    let reply = c.query(&line, Duration::from_millis(300), Duration::from_secs(5)).await.map_err(err)?;
+    Ok(reply.trim().to_string())
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(App::default())
-        .invoke_handler(tauri::generate_handler![usb_devices, ble_devices, connect, disconnect, query])
+        .invoke_handler(tauri::generate_handler![usb_devices, ble_devices, connect, disconnect, query, set_wifi])
         .run(tauri::generate_context!())
         .expect("error while running BusCraft");
 }

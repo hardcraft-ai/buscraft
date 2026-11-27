@@ -53,8 +53,10 @@
   #log .e { color: var(--danger); }
   #log .i { color: var(--muted); }
   #log .t { color: var(--muted); float: right; }
-  form { display: flex; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--line); }
-  form input { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  #send { display: flex; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--line); }
+  .stack { display: grid; gap: 8px; }
+  .note { color: var(--muted); font-size: 12px; }
+  #send input { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
   @media (max-width: 700px) { main { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--line); } }
 </style>
 </head>
@@ -97,6 +99,15 @@
         <button class="ctl" id="led-blink" disabled>Blink</button>
       </div>
       <div id="rtt" style="margin-top:8px"></div>
+    </div>
+    <div>
+      <h2>Wi-Fi</h2>
+      <form id="wifi" class="stack">
+        <input id="ssid" placeholder="Network name" spellcheck="false" autocomplete="off" aria-label="Network name">
+        <input id="pass" type="password" placeholder="Password" autocomplete="off" aria-label="Password">
+        <div class="row"><button class="ctl wifi-ctl" disabled>Save to adapter</button><button type="button" class="ctl wifi-ctl" id="wifi-off" disabled>Forget</button></div>
+        <small id="wifi-note" class="note">Stored encrypted on the adapter. Over USB or Bluetooth only.</small>
+      </form>
     </div>
     <div>
       <h2>Adapter</h2>
@@ -142,6 +153,11 @@ function setConnected(on, text) {
   $('disconnect').disabled = !on;
   $('line').disabled = !on;
   document.querySelectorAll('.ctl').forEach((b) => (b.disabled = !on));
+  // The adapter only accepts Wi-Fi settings over USB or Bluetooth
+  const overNet = text.startsWith('network');
+  document.querySelectorAll('.wifi-ctl').forEach((b) => (b.disabled = !on || overNet));
+  $('wifi-note').textContent = overNet ? 'Connect over USB or Bluetooth to change the Wi-Fi network.'
+                                       : 'Stored encrypted on the adapter. Over USB or Bluetooth only.';
 }
 
 function renderList(el, items, which) {
@@ -181,7 +197,7 @@ async function scanBle() {
 }
 
 async function q(line, quiet) {
-  log('> ' + line, 's');
+  log('> ' + line.replace(/^(\+\+wifi\s+("[^"]*"|\S+)\s+).+$/, '$1••••••'), 's');
   const r = await invoke('query', { line, quietMs: quiet });
   if (r.text) log(r.text, '', r.ms);
   return r;
@@ -249,6 +265,27 @@ $('led-blink').onclick = () => run(async () => {
 });
 
 document.querySelectorAll('[data-line]').forEach((b) => (b.onclick = () => run(() => q(b.dataset.line))));
+
+async function saveWifi(ssid, password) {
+  log('> ++wifi ' + (ssid ? '"' + ssid + '" ••••••' : 'off'), 's');
+  const r = await invoke('set_wifi', { ssid, password });
+  $('pass').value = '';
+  log(r);
+  // Joining takes a few seconds; show the result
+  for (let i = 0; i < 8 && ssid; i++) {
+    await new Promise((res) => setTimeout(res, 2000));
+    const s = await invoke('query', { line: '++wifi', quietMs: 150 });
+    if (!/joining|no address/.test(s.text)) { log(s.text, '', s.ms); break; }
+  }
+}
+
+$('wifi').onsubmit = (ev) => {
+  ev.preventDefault();
+  const ssid = $('ssid').value.trim();
+  if (!ssid) return;
+  run(() => saveWifi(ssid, $('pass').value));
+};
+$('wifi-off').onclick = () => run(() => saveWifi('', ''));
 
 $('send').onsubmit = (ev) => {
   ev.preventDefault();

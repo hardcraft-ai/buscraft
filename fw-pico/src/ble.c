@@ -116,8 +116,14 @@ static void packet_handler(uint8_t type, uint16_t channel, uint8_t *packet, uint
 
 void ble_init(void) {
     ble_in.sink = ble_sink;
+    ble_in.trusted = true;      // Command needs an encrypted link (WRITE_ENCRYPTED in buscraft.gatt)
     l2cap_init();
     sm_init();
+    // LE Secure Connections, "just works": no display or keypad on the adapter. The link is encrypted with an ECDH key,
+    // so a passive listener cannot read the Wi-Fi password; bonding keeps the keys in BTstack's flash bank.
+    sm_set_io_capabilities(IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
+    sm_set_authentication_requirements(SM_AUTHREQ_SECURE_CONNECTION | SM_AUTHREQ_BONDING);
+    sm_set_secure_connections_only_mode(true);
     att_server_init(profile_data, att_read, att_write);
     hci_cb.callback = &packet_handler;
     hci_add_event_handler(&hci_cb);

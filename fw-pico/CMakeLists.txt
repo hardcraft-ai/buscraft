@@ -28,7 +28,7 @@ target_compile_definitions(buscraft-pico PRIVATE
 )
 target_compile_options(buscraft-pico PRIVATE -Wall -Wextra -Wno-unused-parameter)
 target_link_libraries(buscraft-pico pico_stdlib pico_flash pico_cyw43_arch_lwip_poll pico_lwip_mdns
-    pico_btstack_ble pico_btstack_cyw43)
+    pico_btstack_ble pico_btstack_cyw43 pico_mbedtls pico_rand pico_unique_id)
 pico_btstack_make_gatt_header(buscraft-pico PRIVATE "${CMAKE_CURRENT_LIST_DIR}/src/buscraft.gatt")
 pico_enable_stdio_usb(buscraft-pico 1)
 pico_enable_stdio_uart(buscraft-pico 0)

@@ -10,9 +10,13 @@
 #include "komento.h"
 #include "lwip/apps/mdns.h"
 #include "lwip/tcp.h"
+#include "mbedtls/aes.h"
+#include "mbedtls/sha256.h"
 #include "pico/cyw43_arch.h"
 #include "pico/flash.h"
+#include "pico/rand.h"
 #include "pico/stdlib.h"
+#include "pico/unique_id.h"
 
 #define HOSTNAME "buscraft"
 // Mains/USB powered: radio always awake for low latency. Battery builds turn power saving on (-DBUSCRAFT_WIFI_POWERSAVE=ON).
@@ -21,15 +25,28 @@
 #else
 #define WIFI_PM CYW43_NONE_PM
 #endif
-#define CONFIG_MAGIC 0x42435731u   // "BCW1"
+// Wi-Fi settings in flash, encrypted with AES-128-CTR. The key is derived from the board's unique id, so a flash dump
+// shows no readable name or password and the copy does not decrypt on another board. The RP2040 has no secure key
+// storage, so someone holding the board can still recover them; the RP2350 (OTP key, secure boot) closes that gap.
+#define CONFIG_MAGIC_PLAIN  0x42435731u   // "BCW1": first version, stored in the clear (migrated on start)
+#define CONFIG_MAGIC_SEALED 0x42435732u   // "BCW2"
+#define SECRET_CHECK 0x0b05c0deu
 // Third sector from the end: BTstack keeps its bonding data in the last two (PICO_FLASH_BANK_STORAGE_OFFSET).
 #define CONFIG_OFFSET (PICO_FLASH_SIZE_BYTES - 3 * FLASH_SECTOR_SIZE)
+// The first firmware version kept the settings in the clear in the very last sector.
+#define LEGACY_OFFSET (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE)
+
+typedef struct {
+    char ssid[33];
+    char pass[64];
+    uint32_t check;
+} config_t;
 
 typedef struct {
     uint32_t magic;
-    char ssid[33];
-    char pass[64];
-} config_t;
+    uint8_t nonce[16];
+    uint8_t sealed[sizeof(config_t)];
+} stored_t;
 
 static config_t cfg;
 static bool radio_up, connecting;
@@ -42,19 +59,73 @@ static uint8_t rx[1024];
 static volatile size_t rx_head, rx_tail;
 static komento_input_t tcp_in;
 
-static void load_config(void) {
-    memcpy(&cfg, (const void *)(XIP_BASE + CONFIG_OFFSET), sizeof cfg);
-    if (cfg.magic != CONFIG_MAGIC) memset(&cfg, 0, sizeof cfg);
-    cfg.ssid[sizeof cfg.ssid - 1] = 0;
-    cfg.pass[sizeof cfg.pass - 1] = 0;
+static void crypt(const uint8_t nonce[16], const void *in, void *out, size_t n) {
+    static const char label[] = "buscraft wifi v1";
+    pico_unique_board_id_t id;
+    pico_get_unique_board_id(&id);
+    uint8_t material[PICO_UNIQUE_BOARD_ID_SIZE_BYTES + sizeof label], digest[32], counter[16], block[16];
+    memcpy(material, id.id, PICO_UNIQUE_BOARD_ID_SIZE_BYTES);
+    memcpy(material + PICO_UNIQUE_BOARD_ID_SIZE_BYTES, label, sizeof label);
+    mbedtls_sha256(material, sizeof material, digest, 0);
+    mbedtls_aes_context aes;
+    mbedtls_aes_init(&aes);
+    mbedtls_aes_setkey_enc(&aes, digest, 128);
+    memcpy(counter, nonce, 16);
+    size_t off = 0;
+    mbedtls_aes_crypt_ctr(&aes, n, &off, counter, block, in, out);
+    mbedtls_aes_free(&aes);
+    memset(digest, 0, sizeof digest);
 }
 
 static void write_config(void *param) {
     static uint8_t page[FLASH_PAGE_SIZE];
     memset(page, 0xff, sizeof page);
-    memcpy(page, param, sizeof(config_t));
+    memcpy(page, param, sizeof(stored_t));
     flash_range_erase(CONFIG_OFFSET, FLASH_SECTOR_SIZE);
     flash_range_program(CONFIG_OFFSET, page, sizeof page);
+}
+
+static void erase_legacy(void *param) { flash_range_erase(LEGACY_OFFSET, FLASH_SECTOR_SIZE); }
+
+static bool save_config(const config_t *c) {
+    stored_t s = { .magic = CONFIG_MAGIC_SEALED };
+    rng_128_t r;
+    get_rand_128(&r);
+    memcpy(s.nonce, &r, sizeof s.nonce);
+    config_t plain = *c;
+    plain.check = SECRET_CHECK;
+    crypt(s.nonce, &plain, s.sealed, sizeof plain);
+    memset(&plain, 0, sizeof plain);
+    return flash_safe_execute(write_config, &s, 1000) == PICO_OK;
+}
+
+static void load_config(void) {
+    const uint8_t *flash = (const uint8_t *)(XIP_BASE + CONFIG_OFFSET);
+    uint32_t magic;
+    memcpy(&magic, flash, sizeof magic);
+    memset(&cfg, 0, sizeof cfg);
+    if (magic == CONFIG_MAGIC_SEALED) {
+        stored_t s;
+        memcpy(&s, flash, sizeof s);
+        crypt(s.nonce, s.sealed, &cfg, sizeof cfg);
+        if (cfg.check != SECRET_CHECK) memset(&cfg, 0, sizeof cfg);   // another board's flash image
+    }
+    // First firmware version: { magic, ssid[33], pass[64] } in the clear in the last sector. Take it over if nothing
+    // newer is stored, then erase it. The magic check keeps BTstack's own data in that sector untouched.
+    const uint8_t *legacy = (const uint8_t *)(XIP_BASE + LEGACY_OFFSET);
+    memcpy(&magic, legacy, sizeof magic);
+    if (magic == CONFIG_MAGIC_PLAIN) {
+        if (!cfg.ssid[0]) {
+            memcpy(cfg.ssid, legacy + 4, sizeof cfg.ssid);
+            memcpy(cfg.pass, legacy + 4 + sizeof cfg.ssid, sizeof cfg.pass);
+            cfg.ssid[sizeof cfg.ssid - 1] = 0;
+            cfg.pass[sizeof cfg.pass - 1] = 0;
+            save_config(&cfg);
+        }
+        flash_safe_execute(erase_legacy, NULL, 1000);
+    }
+    cfg.ssid[sizeof cfg.ssid - 1] = 0;
+    cfg.pass[sizeof cfg.pass - 1] = 0;
 }
 
 // ---- TCP socket ----
@@ -190,11 +261,12 @@ void net_poll(void) {
 }
 
 bool net_set_wifi(const char *ssid, const char *pass) {
-    config_t n = { .magic = CONFIG_MAGIC };
+    config_t n = {0};
     strncpy(n.ssid, ssid, sizeof n.ssid - 1);
     strncpy(n.pass, pass, sizeof n.pass - 1);
-    if (flash_safe_execute(write_config, &n, 1000) != PICO_OK) return false;
+    if (!save_config(&n)) return false;
     cfg = n;
+    memset(&n, 0, sizeof n);
     if (radio_up) {
         drop_client();
         cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);

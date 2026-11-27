@@ -12,6 +12,7 @@ typedef struct {
     size_t len;
     bool escape;
     komento_sink_t sink;    // where replies to this stream go
+    bool trusted;           // may change Wi-Fi settings: USB, and Bluetooth (encrypted link required by the GATT service)
 } komento_input_t;
 
 void komento_init(void);
