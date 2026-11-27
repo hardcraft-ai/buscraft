@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>BusCraft</title>
 <style>
   :root {
@@ -15,6 +15,10 @@
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
+  /* Phones draw the app under the status and navigation bars: keep content inside the safe area */
+  :root { --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px); }
+  :root.android-insets { --safe-top: 28px; --safe-bottom: 52px; }
+  body { padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
   body { background: var(--bg); color: var(--text); font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
          display: grid; grid-template-rows: auto 1fr; }
   header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
@@ -129,6 +133,15 @@
 </main>
 <script>
 const { invoke } = window.__TAURI__.core;
+// Older Android WebViews report no safe-area insets even though the app is drawn edge to edge
+if (/Android/.test(navigator.userAgent)) {
+  const probe = getComputedStyle(document.documentElement).getPropertyValue('--safe-top');
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;top:0;height:env(safe-area-inset-top,0px)';
+  document.body.append(el);
+  if (el.getBoundingClientRect().height === 0) document.documentElement.classList.add('android-insets');
+  el.remove();
+}
 const $ = (id) => document.getElementById(id);
 let kind = 'usb', selected = { usb: '', ble: '' }, connected = false, busy = false;
 

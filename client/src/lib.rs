@@ -206,20 +206,7 @@ impl Connection {
     pub async fn query(&mut self, line: &str, quiet: Duration, max: Duration) -> Result<String> {
         while self.rx.try_recv().is_ok() {}
         self.send_line(line).await?;
-        let mut out = Vec::new();
-        let end = tokio::time::Instant::now() + max;
-        loop {
-            let left = end.saturating_duration_since(tokio::time::Instant::now());
-            if left.is_zero() {
-                break;
-            }
-            match tokio::time::timeout(quiet.min(left), self.rx.recv()).await {
-                Ok(Some(chunk)) => out.extend(chunk),
-                Ok(None) => bail!("connection closed"),
-                Err(_) => break,
-            }
-        }
-        Ok(String::from_utf8_lossy(&out).into_owned())
+        read_reply(&mut self.rx, quiet, max).await
     }
 
     pub async fn close(self) {
@@ -227,4 +214,23 @@ impl Connection {
             p.disconnect().await.ok();
         }
     }
+}
+
+/// Collects reply bytes until the link has been quiet for `quiet` (at most `max`). Shared with transports that live
+/// outside this crate, such as the Android ones in the app.
+pub async fn read_reply(rx: &mut mpsc::UnboundedReceiver<Vec<u8>>, quiet: Duration, max: Duration) -> Result<String> {
+    let mut out = Vec::new();
+    let end = tokio::time::Instant::now() + max;
+    loop {
+        let left = end.saturating_duration_since(tokio::time::Instant::now());
+        if left.is_zero() {
+            break;
+        }
+        match tokio::time::timeout(quiet.min(left), rx.recv()).await {
+            Ok(Some(chunk)) => out.extend(chunk),
+            Ok(None) => bail!("connection closed"),
+            Err(_) => break,
+        }
+    }
+    Ok(String::from_utf8_lossy(&out).into_owned())
 }
