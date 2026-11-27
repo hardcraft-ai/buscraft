@@ -8,6 +8,7 @@ set(CMAKE_C_STANDARD 11)
 pico_sdk_init()
 
 set(BUSCRAFT_VERSION "0.1.0" CACHE STRING "Firmware version")
+option(BUSCRAFT_WIFI_POWERSAVE "Wi-Fi power saving (battery builds); off = lowest latency" OFF)
 
 add_executable(buscraft-pico
     src/main.c
@@ -22,6 +23,7 @@ target_compile_definitions(buscraft-pico PRIVATE
     USBD_PRODUCT="BusCraft GPIB"
     PICO_STDIO_DEFAULT_CRLF=0
     CYW43_HOST_NAME="buscraft"
+    BUSCRAFT_WIFI_POWERSAVE=$<BOOL:${BUSCRAFT_WIFI_POWERSAVE}>
 )
 target_compile_options(buscraft-pico PRIVATE -Wall -Wextra -Wno-unused-parameter)
 target_link_libraries(buscraft-pico pico_stdlib pico_flash pico_cyw43_arch_lwip_poll pico_lwip_mdns)

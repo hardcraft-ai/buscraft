@@ -110,3 +110,6 @@ firmware image:
 
 The adapter announces itself as `buscraft.local` with the service `_scpi-raw._tcp`, so VISA tools can open
 `TCPIP::buscraft.local::5025::SOCKET`. One TCP client at a time; a new connection replaces the old one.
+
+Wi-Fi power saving is off by default (round trip about 3 ms instead of about 90 ms). For battery-powered builds
+configure with `-DBUSCRAFT_WIFI_POWERSAVE=ON`.

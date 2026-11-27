@@ -14,6 +14,12 @@
 #include "pico/stdlib.h"
 
 #define HOSTNAME "buscraft"
+// Mains/USB powered: radio always awake for low latency. Battery builds turn power saving on (-DBUSCRAFT_WIFI_POWERSAVE=ON).
+#if BUSCRAFT_WIFI_POWERSAVE
+#define WIFI_PM CYW43_PERFORMANCE_PM
+#else
+#define WIFI_PM CYW43_NONE_PM
+#endif
 #define CONFIG_MAGIC 0x42435731u   // "BCW1"
 #define CONFIG_OFFSET (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE)
 
@@ -151,6 +157,7 @@ void net_poll(void) {
     if (link != last_link) {
         last_link = link;
         if (link == CYW43_LINK_UP) {
+            cyw43_wifi_pm(&cyw43_state, WIFI_PM);
             start_server();
             mdns_resp_announce(netif_default);
         }
