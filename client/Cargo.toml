@@ -1,9 +1,23 @@
 [package]
 name = "buscraft"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
-description = "Host client for BusCraft, an open wireless GPIB adapter"
+description = "Host library and command line client for BusCraft, an open GPIB adapter"
 license = "Apache-2.0"
 repository = "https://github.com/hardcraft-ai/buscraft"
 
+[lib]
+name = "buscraft"
+path = "src/lib.rs"
+
+[[bin]]
+name = "buscraft"
+path = "src/main.rs"
+
 [dependencies]
+anyhow = "1"
+btleplug = "0.11"
+futures = "0.3"
+serialport = "4.10"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util"] }
+uuid = "1"

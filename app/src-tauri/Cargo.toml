@@ -1,0 +1,22 @@
+[package]
+name = "buscraft-app"
+version = "0.1.0"
+description = "BusCraft desktop app"
+license = "Apache-2.0"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+tauri = { version = "2.12", features = [] }
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["sync", "time"] }
+buscraft = { path = "../../client" }
+anyhow = "1"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "s"

@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BusCraft</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --surface: #fffefb; --text: #1b1b1a; --muted: #6d6c66; --line: #dedcd4;
+    --accent: #1f9d5c; --accent-text: #fff; --danger: #c0392b; --sent: #2f6fdf; --code: #f0efe9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #121312; --surface: #1a1b1a; --text: #ecebe6; --muted: #9a9993; --line: #2a2b29;
+            --accent: #37c47a; --accent-text: #0b1a12; --danger: #e5675a; --sent: #6f9cf0; --code: #141514; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+         display: grid; grid-template-rows: auto 1fr; }
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .brand { font: 600 15px ui-monospace, "SF Mono", Menlo, Consolas, monospace; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .dot.on { background: var(--accent); }
+  #status { color: var(--muted); }
+  main { display: grid; grid-template-columns: 300px 1fr; min-height: 0; }
+  aside { border-right: 1px solid var(--line); padding: 16px; overflow: auto; display: flex; flex-direction: column; gap: 18px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .tabs button { border: 0; border-radius: 0; background: var(--surface); color: var(--text); padding: 7px 0; }
+  .tabs button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+  button { font: inherit; border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 8px;
+           padding: 7px 12px; cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  button:disabled { opacity: .45; cursor: default; }
+  input, select { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+                  padding: 7px 10px; width: 100%; }
+  .list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .dev { text-align: left; display: grid; gap: 1px; }
+  .dev[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .dev small { color: var(--muted); font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; word-break: break-all; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  .empty { color: var(--muted); font-size: 13px; }
+  .led { display: flex; align-items: center; gap: 10px; }
+  .bulb { width: 22px; height: 22px; border-radius: 50%; background: var(--line); border: 1px solid var(--muted); flex: none; }
+  .bulb.on { background: #3ddc84; box-shadow: 0 0 12px #3ddc84; border-color: #2aa864; }
+  #rtt { color: var(--muted); font: 12px ui-monospace, "SF Mono", Menlo, monospace; }
+  section.console { display: grid; grid-template-rows: 1fr auto; min-height: 0; }
+  #log { margin: 0; padding: 14px 16px; overflow: auto; background: var(--code);
+         font: 12.5px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+  #log .s { color: var(--sent); }
+  #log .e { color: var(--danger); }
+  #log .i { color: var(--muted); }
+  #log .t { color: var(--muted); float: right; }
+  form { display: flex; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--line); }
+  form input { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  @media (max-width: 700px) { main { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--line); } }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="dot" id="dot"></span>BusCraft</div>
+  <span id="status">not connected</span>
+</header>
+<main>
+  <aside>
+    <div>
+      <h2>Connection</h2>
+      <div class="tabs" role="group">
+        <button data-kind="usb" aria-pressed="true">USB</button>
+        <button data-kind="net" aria-pressed="false">Network</button>
+        <button data-kind="ble" aria-pressed="false">Bluetooth</button>
+      </div>
+      <div id="pane-usb" class="pane">
+        <div class="list" id="usb-list"></div>
+        <div class="row" style="margin-top:8px"><button id="usb-refresh">Refresh</button></div>
+      </div>
+      <div id="pane-net" class="pane" hidden>
+        <div class="list"><input id="host" value="buscraft.local" spellcheck="false" aria-label="Host"></div>
+      </div>
+      <div id="pane-ble" class="pane" hidden>
+        <div class="list" id="ble-list"><span class="empty">Scan to find adapters nearby.</span></div>
+        <div class="row" style="margin-top:8px"><button id="ble-scan">Scan</button></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="connect">Connect</button>
+        <button id="disconnect" disabled>Disconnect</button>
+      </div>
+    </div>
+    <div>
+      <h2>LED test</h2>
+      <div class="led">
+        <span class="bulb" id="bulb"></span>
+        <button class="ctl" id="led-on" disabled>On</button>
+        <button class="ctl" id="led-off" disabled>Off</button>
+        <button class="ctl" id="led-blink" disabled>Blink</button>
+      </div>
+      <div id="rtt" style="margin-top:8px"></div>
+    </div>
+    <div>
+      <h2>Adapter</h2>
+      <div class="row">
+        <button class="ctl" data-line="++ver" disabled>Version</button>
+        <button class="ctl" data-line="++wifi" disabled>Wi-Fi</button>
+        <button class="ctl" data-line="++lines" disabled>Bus lines</button>
+      </div>
+    </div>
+  </aside>
+  <section class="console">
+    <pre id="log"><span class="i">Pick a connection and press Connect. Lines starting with ++ go to the adapter, others to the instrument.</span>
+</pre>
+    <form id="send">
+      <input id="line" placeholder="++help or *IDN?" spellcheck="false" autocomplete="off" disabled>
+      <button class="primary ctl" disabled>Send</button>
+    </form>
+  </section>
+</main>
+<script>
+const { invoke } = window.__TAURI__.core;
+const $ = (id) => document.getElementById(id);
+let kind = 'usb', selected = { usb: '', ble: '' }, connected = false, busy = false;
+
+function log(text, cls, ms) {
+  const el = document.createElement('span');
+  if (cls) el.className = cls;
+  el.textContent = text.endsWith('\n') ? text : text + '\n';
+  if (ms !== undefined) {
+    const t = document.createElement('span');
+    t.className = 't';
+    t.textContent = ms.toFixed(1) + ' ms';
+    el.prepend(t);
+  }
+  $('log').append(el);
+  $('log').scrollTop = $('log').scrollHeight;
+}
+
+function setConnected(on, text) {
+  connected = on;
+  $('dot').classList.toggle('on', on);
+  $('status').textContent = text;
+  $('disconnect').disabled = !on;
+  $('line').disabled = !on;
+  document.querySelectorAll('.ctl').forEach((b) => (b.disabled = !on));
+}
+
+function renderList(el, items, which) {
+  el.replaceChildren();
+  if (!items.length) {
+    const e = document.createElement('span');
+    e.className = 'empty';
+    e.textContent = which === 'usb' ? 'No adapter on USB.' : 'No adapter found.';
+    el.append(e);
+    return;
+  }
+  if (!items.some((d) => d.id === selected[which])) selected[which] = items[0].id;
+  for (const d of items) {
+    const b = document.createElement('button');
+    b.className = 'dev';
+    b.setAttribute('aria-pressed', String(d.id === selected[which]));
+    b.innerHTML = '<span></span><small></small>';
+    b.firstChild.textContent = d.name + (d.detail && which === 'ble' ? '  ' + d.detail : '');
+    b.lastChild.textContent = d.id;
+    b.onclick = () => { selected[which] = d.id; renderList(el, items, which); };
+    el.append(b);
+  }
+}
+
+async function refreshUsb() {
+  try { renderList($('usb-list'), await invoke('usb_devices'), 'usb'); }
+  catch (e) { log(String(e), 'e'); }
+}
+
+async function scanBle() {
+  $('ble-scan').disabled = true;
+  $('ble-scan').textContent = 'Scanning…';
+  try { renderList($('ble-list'), await invoke('ble_devices'), 'ble'); }
+  catch (e) { log(String(e), 'e'); }
+  $('ble-scan').disabled = false;
+  $('ble-scan').textContent = 'Scan';
+}
+
+async function q(line, quiet) {
+  log('> ' + line, 's');
+  const r = await invoke('query', { line, quietMs: quiet });
+  if (r.text) log(r.text, '', r.ms);
+  return r;
+}
+
+async function run(fn) {
+  if (busy) return;
+  busy = true;
+  try { await fn(); } catch (e) { log(String(e), 'e'); }
+  busy = false;
+}
+
+document.querySelectorAll('.tabs button').forEach((b) => (b.onclick = () => {
+  kind = b.dataset.kind;
+  document.querySelectorAll('.tabs button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  document.querySelectorAll('.pane').forEach((p) => (p.hidden = p.id !== 'pane-' + kind));
+  if (kind === 'usb') refreshUsb();
+}));
+
+$('usb-refresh').onclick = refreshUsb;
+$('ble-scan').onclick = scanBle;
+
+$('connect').onclick = () => run(async () => {
+  const target = kind === 'net' ? $('host').value.trim() : selected[kind];
+  $('status').textContent = 'connecting…';
+  try {
+    const desc = await invoke('connect', { kind, target });
+    setConnected(true, desc);
+    log('connected: ' + desc, 'i');
+    await q('++ver');
+    const led = await invoke('query', { line: '++led', quietMs: 150 });
+    $('bulb').classList.toggle('on', led.text.trim() === '1');
+  } catch (e) {
+    setConnected(false, 'not connected');
+    throw e;
+  }
+});
+
+$('disconnect').onclick = () => run(async () => {
+  await invoke('disconnect');
+  setConnected(false, 'not connected');
+  log('disconnected', 'i');
+});
+
+async function led(on) {
+  await invoke('query', { line: '++led ' + (on ? 1 : 0), quietMs: 0 });
+  // ++led has no reply: read the state back to measure a full round trip
+  const r = await invoke('query', { line: '++led', quietMs: 60 });
+  $('bulb').classList.toggle('on', r.text.trim() === '1');
+  return r.ms;
+}
+
+$('led-on').onclick = () => run(async () => { const ms = await led(true); $('rtt').textContent = 'round trip ' + ms.toFixed(1) + ' ms'; });
+$('led-off').onclick = () => run(async () => { const ms = await led(false); $('rtt').textContent = 'round trip ' + ms.toFixed(1) + ' ms'; });
+$('led-blink').onclick = () => run(async () => {
+  const times = [];
+  for (let i = 0; i < 10; i++) {
+    times.push(await led(i % 2 === 0));
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  await led(false);
+  times.sort((a, b) => a - b);
+  $('rtt').textContent = `blink ×10: round trip median ${times[5].toFixed(1)} ms, max ${times[9].toFixed(1)} ms`;
+  log(`blink ×10 over ${$('status').textContent}: median ${times[5].toFixed(1)} ms, max ${times[9].toFixed(1)} ms`, 'i');
+});
+
+document.querySelectorAll('[data-line]').forEach((b) => (b.onclick = () => run(() => q(b.dataset.line))));
+
+$('send').onsubmit = (ev) => {
+  ev.preventDefault();
+  const line = $('line').value.trim();
+  if (!line) return;
+  $('line').value = '';
+  // Instrument reads can take longer than adapter commands
+  run(() => q(line, line.startsWith('++') ? 150 : 400));
+};
+
+refreshUsb();
+</script>
+</body>
+</html>

@@ -21,7 +21,9 @@ Part of [Hardcraft](https://hardcraft.ai): open bench tools for embedded develop
 |---|---|---|
 | `hw/` | KiCad project and fabrication outputs | CERN-OHL-S-2.0 |
 | `fw/` | Adapter firmware | Apache-2.0 |
-| `client/` | Host client (Rust) | Apache-2.0 |
+| `client/` | Host library and command line client (Rust): USB, network, Bluetooth LE | Apache-2.0 |
+| `app/` | Desktop app (Tauri) | Apache-2.0 |
+| `fw-pico/` | Firmware for the Raspberry Pi Pico W prototype | Apache-2.0 |
 | `skill/` | AI assistant skill | Apache-2.0 |
 | `docs/` | Documentation and measurement data | CC BY 4.0 |
 

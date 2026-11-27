@@ -29,6 +29,9 @@ jobs:
         working-directory: client
     steps:
       - uses: actions/checkout@v4
+      - name: Linux libraries (Bluetooth over D-Bus, serial port discovery over udev)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends libdbus-1-dev libudev-dev pkg-config
       - run: cargo build --release --locked || cargo build --release
       - run: cargo test --release
       - name: package
@@ -41,6 +44,25 @@ jobs:
         with:
           name: buscraft-${{ matrix.name }}
           path: buscraft-${{ matrix.name }}.zip
+
+  app:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci || npm install
+      - run: npx tauri build --bundles app,dmg
+      - name: package
+        run: cp src-tauri/target/release/bundle/dmg/*.dmg ../BusCraft-macos.dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: buscraft-app-macos
+          path: BusCraft-macos.dmg
 
   firmware:
     runs-on: ubuntu-latest
@@ -114,7 +136,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [client, firmware, firmware-pico, hardware]
+    needs: [client, app, firmware, firmware-pico, hardware]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -123,5 +145,7 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.zip
+          files: |
+            dist/*.zip
+            dist/*.dmg
           draft: true
