@@ -205,6 +205,15 @@ bool net_set_wifi(const char *ssid, const char *pass) {
     return true;
 }
 
+static bool led;
+
+void net_led(bool on) {
+    led = on;
+    if (radio_up) cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, on);
+}
+
+bool net_led_state(void) { return led; }
+
 void net_status(char *buf, size_t n) {
     if (!cfg.ssid[0]) { snprintf(buf, n, "wifi off\n"); return; }
     int link = radio_up ? cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA) : CYW43_LINK_DOWN;

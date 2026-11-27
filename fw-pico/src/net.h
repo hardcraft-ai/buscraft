@@ -10,3 +10,5 @@ void net_init(void);                                  // starts Wi-Fi if credent
 void net_poll(void);                                  // call from the main loop
 bool net_set_wifi(const char *ssid, const char *pass); // stores and connects; empty ssid forgets the network
 void net_status(char *buf, size_t n);                 // one text line
+void net_led(bool on);                                // the Pico W LED sits on the radio chip
+bool net_led_state(void);

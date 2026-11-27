@@ -92,6 +92,7 @@ every other line is sent to the instrument at the current address. ESC (27) make
 | `++lines` | state of every bus line, asserted lines in capitals |
 | `++selftest` | asserts each line alone and reports shorts or lines stuck low; run with no instrument connected |
 | `++wifi [ssid password \| off]` | Wi-Fi network (see below) |
+| `++led [0\|1]` | the Pico's on-board LED (connection test) |
 | `++ver`, `++help`, `++rst` | version, command list, restart |
 
 Commands without an argument print the current value.

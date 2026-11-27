@@ -114,7 +114,7 @@ static void help(void) {
     reply("++addr [0-30]  ++auto [0|1]  ++eoi [0|1]  ++eos [0-3]  ++eot_enable [0|1]  ++eot_char [n]\n"
           "++read [eoi|n]  ++read_tmo_ms [ms]  ++spoll [addr]  ++srq  ++clr  ++trg  ++loc  ++llo  ++ifc\n"
           "++ren [0|1]  ++mode  ++ver  ++rst  ++help\n"
-          "++wifi [ssid password | off]  ++lines (bus state, asserted in CAPITALS)  ++selftest (shorts, lines stuck low; run without instrument)\n");
+          "++wifi [ssid password | off]  ++led [0|1]  ++lines (bus state, asserted in CAPITALS)  ++selftest (shorts, lines stuck low; run without instrument)\n");
 }
 
 static void plus_command(const char *line) {
@@ -184,6 +184,8 @@ static void plus_command(const char *line) {
         }
         net_status(b, sizeof b);
         reply(b);
+    } else if (is_cmd(line, "led", &a)) {
+        if (a) net_led(atoi(a) != 0); else reply_int(net_led_state());
     } else if (is_cmd(line, "lines", &a)) {
         print_lines(gpib_lines());
     } else if (is_cmd(line, "selftest", &a)) {
