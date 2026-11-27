@@ -1,35 +1,29 @@
-// BusCraft on a Raspberry Pi Pico W: GPIB controller behind a USB serial port.
-// Host lines end in CR or LF. ESC (27) makes the next character literal, so data can carry CR, LF, ESC or "+".
+// BusCraft on a Raspberry Pi Pico W: GPIB controller behind a USB serial port and a Wi-Fi TCP socket (port 5025).
 #include <stdbool.h>
 #include <stdio.h>
 
 #include "hardware/watchdog.h"
 #include "komento.h"
+#include "net.h"
 #include "pico/stdlib.h"
+
+static void usb_sink(const void *data, size_t n) {
+    const char *p = data;
+    for (size_t i = 0; i < n; i++) putchar_raw(p[i]);
+    stdio_flush();
+}
 
 int main(void) {
     stdio_init_all();
     komento_init();
+    net_init();
     watchdog_enable(5000, true);
 
-    static char line[512];
-    size_t len = 0;
-    bool escape = false;
+    static komento_input_t usb_in = { .sink = usb_sink };
     for (;;) {
         watchdog_update();
-        int c = getchar_timeout_us(100 * 1000);
-        if (c == PICO_ERROR_TIMEOUT) continue;
-        if (escape) {
-            escape = false;
-        } else if (c == 27) {
-            escape = true;
-            continue;
-        } else if (c == '\r' || c == '\n') {
-            line[len] = 0;
-            komento_line(line, len);
-            len = 0;
-            continue;
-        }
-        if (len < sizeof line - 1) line[len++] = (char)c;
+        net_poll();
+        int c = getchar_timeout_us(1000);
+        if (c != PICO_ERROR_TIMEOUT) komento_feed(&usb_in, c);
     }
 }

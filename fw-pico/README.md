@@ -1,7 +1,7 @@
 # Firmware for Raspberry Pi Pico W
 
 First working BusCraft build: an RP2040 board drives the GPIB bus straight from its GPIOs (open drain, no bus driver
-chips) and talks to the host over USB serial. The Bluetooth LE link comes next; the line protocol stays the same.
+chips) and talks to the host over USB serial and Wi-Fi (TCP port 5025). The line protocol is the same on both.
 
 ## Wiring
 
@@ -91,6 +91,22 @@ every other line is sent to the instrument at the current address. ESC (27) make
 | `++ifc`, `++ren [0\|1]` | interface clear, remote enable |
 | `++lines` | state of every bus line, asserted lines in capitals |
 | `++selftest` | asserts each line alone and reports shorts or lines stuck low; run with no instrument connected |
+| `++wifi [ssid password \| off]` | Wi-Fi network (see below) |
 | `++ver`, `++help`, `++rst` | version, command list, restart |
 
 Commands without an argument print the current value.
+
+## Wi-Fi
+
+The Pico W can also join a 2.4 GHz Wi-Fi network and serve the same protocol on TCP port 5025 (raw socket, the
+usual port for instrument control). Give the network once over USB; it is stored in the Pico's flash, not in the
+firmware image:
+
+```
+++wifi MyNetwork MyPassword     join and remember (WPA2; leave the password out for an open network)
+++wifi                          status, address and whether a client is connected
+++wifi off                      forget the network
+```
+
+The adapter announces itself as `buscraft.local` with the service `_scpi-raw._tcp`, so VISA tools can open
+`TCPIP::buscraft.local::5025::SOCKET`. One TCP client at a time; a new connection replaces the old one.

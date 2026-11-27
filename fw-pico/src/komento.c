@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "gpib.h"
+#include "net.h"
 #include "hardware/watchdog.h"
 #include "pico/stdlib.h"
 
@@ -21,7 +22,10 @@ static struct {
     char eot_char;
 } st = { .addr = 1, .autoread = false, .eoi = true, .eos = 0, .eot = false, .eot_char = '\n' };
 
-static void reply(const char *s) { fputs(s, stdout); fflush(stdout); }
+static komento_sink_t sink;   // replies go to the stream whose line is being handled
+
+static void out(const void *p, size_t n) { sink(p, n); }
+static void reply(const char *s) { out(s, strlen(s)); }
 
 static void error(gpib_err_t e) {
     reply(e == GPIB_ERR_NO_LISTENER ? "error: no listener\n" : "error: timeout\n");
@@ -42,15 +46,14 @@ static void do_read(int term) {
     do {
         // Long replies come in buffer-sized pieces; the instrument stays addressed as talker between them.
         err = gpib_read(st.addr, buf, sizeof buf, term, &r);
-        if (r.len) fwrite(buf, 1, r.len, stdout);
+        if (r.len) out(buf, r.len);
         if (err != GPIB_OK) {
             if (first || r.len == 0) error(err);
             break;
         }
         first = false;
     } while (!r.eoi && !r.term && r.len == sizeof buf);
-    if (r.eoi && st.eot) putchar(st.eot_char);
-    fflush(stdout);
+    if (r.eoi && st.eot) out(&st.eot_char, 1);
 }
 
 static void do_write(const char *data, size_t n) {
@@ -111,7 +114,7 @@ static void help(void) {
     reply("++addr [0-30]  ++auto [0|1]  ++eoi [0|1]  ++eos [0-3]  ++eot_enable [0|1]  ++eot_char [n]\n"
           "++read [eoi|n]  ++read_tmo_ms [ms]  ++spoll [addr]  ++srq  ++clr  ++trg  ++loc  ++llo  ++ifc\n"
           "++ren [0|1]  ++mode  ++ver  ++rst  ++help\n"
-          "++lines (bus state, asserted in CAPITALS)  ++selftest (shorts, lines stuck low; run without instrument)\n");
+          "++wifi [ssid password | off]  ++lines (bus state, asserted in CAPITALS)  ++selftest (shorts, lines stuck low; run without instrument)\n");
 }
 
 static void plus_command(const char *line) {
@@ -165,6 +168,22 @@ static void plus_command(const char *line) {
         reply("BusCraft GPIB adapter, fw-pico " BUSCRAFT_VERSION "\n");
     } else if (is_cmd(line, "rst", &a)) {
         watchdog_reboot(0, 0, 10);
+    } else if (is_cmd(line, "wifi", &a)) {
+        char b[96];
+        if (a) {
+            // "++wifi off" forgets the network; otherwise the first word is the name, the rest the password
+            char ssid[33] = "", pass[64] = "";
+            if (strcmp(a, "off") != 0) {
+                const char *sp = strchr(a, ' ');
+                size_t n = sp ? (size_t)(sp - a) : strlen(a);
+                if (n >= sizeof ssid) n = sizeof ssid - 1;
+                memcpy(ssid, a, n);
+                if (sp) strncpy(pass, sp + 1, sizeof pass - 1);
+            }
+            if (!net_set_wifi(ssid, pass)) { reply("error: could not store the network settings\n"); return; }
+        }
+        net_status(b, sizeof b);
+        reply(b);
     } else if (is_cmd(line, "lines", &a)) {
         print_lines(gpib_lines());
     } else if (is_cmd(line, "selftest", &a)) {
@@ -180,7 +199,23 @@ void komento_init(void) {
     gpib_init(OWN_ADDR);
 }
 
-void komento_line(const char *line, size_t len) {
+static void komento_line(const char *line, size_t len) {
     if (len >= 2 && line[0] == '+' && line[1] == '+') plus_command(line + 2);
     else if (len) do_write(line, len);
+}
+
+void komento_feed(komento_input_t *in, int c) {
+    if (in->escape) {
+        in->escape = false;
+    } else if (c == 27) {
+        in->escape = true;
+        return;
+    } else if (c == '\r' || c == '\n') {
+        in->line[in->len] = 0;
+        sink = in->sink;
+        komento_line(in->line, in->len);
+        in->len = 0;
+        return;
+    }
+    if (in->len < sizeof in->line - 1) in->line[in->len++] = (char)c;
 }
