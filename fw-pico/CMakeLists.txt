@@ -1,7 +1,14 @@
 cmake_minimum_required(VERSION 3.13)
 
 set(PICO_BOARD pico_w CACHE STRING "Board type")
-include(pico_sdk_import.cmake)
+# The SDK's own import script, used in place from the SDK checkout (PICO_SDK_PATH on the command line or in the environment)
+if(NOT PICO_SDK_PATH)
+    set(PICO_SDK_PATH $ENV{PICO_SDK_PATH})
+endif()
+if(NOT PICO_SDK_PATH)
+    message(FATAL_ERROR "Set PICO_SDK_PATH to a Pico SDK checkout")
+endif()
+include(${PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
 project(buscraft_pico C CXX ASM)
 set(CMAKE_C_STANDARD 11)
