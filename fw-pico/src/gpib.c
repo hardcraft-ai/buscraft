@@ -155,6 +155,38 @@ gpib_err_t gpib_addressed(uint8_t addr, uint8_t cmd_byte) {
 
 uint32_t gpib_lines(void) { return ~gpio_get_all() & ALL_MASK; }
 
+int gpib_diag(uint32_t steps[GPIB_DIAG_STEPS]) {
+    uint64_t deadline;
+    int n = 0;
+    stop_listening();
+    steps[n++] = gpib_lines();
+    assert_line(GPIB_ATN);
+    sleep_us(100);
+    steps[n++] = gpib_lines();
+    deadline = time_us_64() + timeout_us;
+    bool ok = wait_line(GPIB_NRFD, false, deadline);
+    if (ok) {
+        steps[n++] = gpib_lines();
+        gpio_set_dir_masked(DIO_MASK, (uint32_t)GPIB_UNL << GPIB_DIO1);
+        sleep_us(2);
+        assert_line(GPIB_DAV);
+        sleep_us(1);
+        steps[n++] = gpib_lines();
+        ok = wait_line(GPIB_NDAC, false, time_us_64() + timeout_us);
+        if (ok) steps[n++] = gpib_lines();
+        release_line(GPIB_DAV);
+        gpio_set_dir_in_masked(DIO_MASK);
+        if (ok) {
+            sleep_us(100);
+            steps[n++] = gpib_lines();
+        }
+    }
+    release_line(GPIB_ATN);
+    sleep_us(100);
+    if (ok) steps[n++] = gpib_lines();
+    return n;
+}
+
 static uint32_t selftest_lines(int *bad) {
     *bad = -1;
     gpio_set_dir_in_masked(ALL_MASK);   // release everything, including REN

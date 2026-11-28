@@ -7,14 +7,27 @@
 
 // Pico GPIO numbers. DIO1..DIO8 are contiguous so the data byte is one masked read/write.
 #define GPIB_DIO1 0   // DIO1..DIO8 = GP0..GP7
+#if BUSCRAFT_SWAP_DAV_REN     // prototype board with DAV and REN crossed
+#define GPIB_DAV  15
+#else
 #define GPIB_DAV  8
+#endif
+#if BUSCRAFT_SWAP_NRFD_NDAC   // board wired with NRFD and NDAC crossed (pin 13, GND, sits between them on the Pico)
+#define GPIB_NRFD 10
+#define GPIB_NDAC 9
+#else
 #define GPIB_NRFD 9
 #define GPIB_NDAC 10
+#endif
 #define GPIB_EOI  11
 #define GPIB_ATN  12
 #define GPIB_IFC  13
 #define GPIB_SRQ  14
+#if BUSCRAFT_SWAP_DAV_REN
+#define GPIB_REN  8
+#else
 #define GPIB_REN  15
+#endif
 
 // Multiline (ATN) commands
 #define GPIB_GTL 0x01
@@ -60,3 +73,8 @@ gpib_err_t gpib_addressed(uint8_t addr, uint8_t cmd);      // UNL, MLA addr, cmd
 uint32_t gpib_lines(void);           // bit per GPIO (GP0..GP15), 1 = line asserted (low)
 uint32_t gpib_selftest(int *bad);    // asserts each line alone; returns the mask of other lines that followed it,
                                      // *bad = GPIO of the first faulty line or -1
+
+// Handshake diagnostics: sends UNL with ATN one step at a time and records the bus lines after each step
+// (idle, ATN, NRFD released, DAV, NDAC released, DAV released, ATN released). Returns the number of steps reached.
+#define GPIB_DIAG_STEPS 7
+int gpib_diag(uint32_t steps[GPIB_DIAG_STEPS]);

@@ -82,9 +82,11 @@ static void set_or_show_bool(bool *v, const char *arg) {
     if (arg) *v = atoi(arg) != 0; else reply_int(*v);
 }
 
+// Indexed by GPIO number, so the names follow the pin assignment in gpib.h
 static const char *const LINE_NAMES[16] = {
     "DIO1", "DIO2", "DIO3", "DIO4", "DIO5", "DIO6", "DIO7", "DIO8",
-    "DAV", "NRFD", "NDAC", "EOI", "ATN", "IFC", "SRQ", "REN",
+    [GPIB_DAV] = "DAV", [GPIB_NRFD] = "NRFD", [GPIB_NDAC] = "NDAC", [GPIB_EOI] = "EOI",
+    [GPIB_ATN] = "ATN", [GPIB_IFC] = "IFC", [GPIB_SRQ] = "SRQ", [GPIB_REN] = "REN",
 };
 
 // One line: every bus signal with its state, asserted lines in upper case (e.g. "dio1 ... NDAC ... REN").
@@ -115,7 +117,7 @@ static void help(void) {
     reply("++addr [0-30]  ++auto [0|1]  ++eoi [0|1]  ++eos [0-3]  ++eot_enable [0|1]  ++eot_char [n]\n"
           "++read [eoi|n]  ++read_tmo_ms [ms]  ++spoll [addr]  ++srq  ++clr  ++trg  ++loc  ++llo  ++ifc\n"
           "++ren [0|1]  ++mode  ++ver  ++rst  ++help\n"
-          "++wifi [ssid password | off]  ++led [0|1]  ++lines (bus state, asserted in CAPITALS)  ++selftest (shorts, lines stuck low; run without instrument)\n");
+          "++wifi [ssid password | off]  ++led [0|1]  ++lines (bus state, asserted in CAPITALS)  ++diag (handshake of one command byte, step by step)  ++selftest (shorts, lines stuck low; run without instrument)\n");
 }
 
 static void plus_command(const char *line) {
@@ -200,6 +202,19 @@ static void plus_command(const char *line) {
         if (a) net_led(atoi(a) != 0); else reply_int(net_led_state());
     } else if (is_cmd(line, "lines", &a)) {
         print_lines(gpib_lines());
+    } else if (is_cmd(line, "diag", &a)) {
+        // One command byte (UNL) step by step, bus lines after each step
+        uint32_t steps[GPIB_DIAG_STEPS];
+        static const char *const what[GPIB_DIAG_STEPS] = {
+            "idle", "ATN asserted", "acceptors ready (NRFD released)", "DAV asserted", "accepted (NDAC released)",
+            "DAV released", "ATN released"};
+        int done = gpib_diag(steps);
+        for (int i = 0; i < GPIB_DIAG_STEPS; i++) {
+            char b[64];
+            snprintf(b, sizeof b, "%-34s ", what[i]);
+            reply(b);
+            if (i < done) print_lines(steps[i]); else reply("(timeout, not reached)\n");
+        }
     } else if (is_cmd(line, "selftest", &a)) {
         selftest();
     } else if (is_cmd(line, "help", &a)) {

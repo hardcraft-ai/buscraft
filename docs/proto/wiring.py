@@ -54,6 +54,94 @@ def xy(col, row):
     return OX + col * U + U / 2, OY + row * U + U / 2
 
 
+# Wires are drawn as right-angle routes that never share a segment: each wire has its own horizontal lane between the
+# connector and the Pico and its own vertical columns. Row A wires step half a hole sideways to pass between the row B
+# pads; wires into the Pico come down just beside their pin, between the pads of the other header, and turn in at the end.
+LANE_TOP, LANE_BOTTOM = 3.0, 11.0
+
+
+def route(gpib, pico, lane, side=(1, -1)):
+    """side: which way a row A wire steps past the row B pads, and which side of its Pico pin the wire comes down."""
+    jc, jr = j1_pos(gpib)
+    pc, pr = pico_pos(pico)
+    pts = [(jc, jr)]
+    jx = jc
+    if jr == J1_ROW_A:
+        jx = jc + 0.5 * side[0]
+        pts += [(jc, jr + 0.5), (jx, jr + 0.5)]
+    px = pc + 0.32 * side[1]
+    return pts + [(jx, lane), (px, lane), (px, pr), (pc, pr)]
+
+
+def crossings(a, b):
+    """Points where two right-angle routes cross."""
+    n = 0
+    for (x1, y1), (x2, y2) in zip(a, a[1:]):
+        for (x3, y3), (x4, y4) in zip(b, b[1:]):
+            for (h, v) in (((x1, y1, x2, y2), (x3, y3, x4, y4)), ((x3, y3, x4, y4), (x1, y1, x2, y2))):
+                hx1, hy1, hx2, hy2 = h
+                vx1, vy1, vx2, vy2 = v
+                if hy1 == hy2 and vx1 == vx2 and min(hx1, hx2) < vx1 < max(hx1, hx2) and min(vy1, vy2) < hy1 < max(vy1, vy2):
+                    n += 1
+    return n
+
+
+SIDES = [(1, -1), (-1, -1), (1, 1), (-1, 1)]
+
+
+def lanes():
+    """Lane and sides per wire, chosen by simulated annealing (fixed seed, so the drawing is reproducible) to keep the
+    number of crossings small."""
+    import math
+    import random
+    rnd = random.Random(488)
+    k = len(WIRES)
+    ys = [LANE_TOP + i * (LANE_BOTTOM - LANE_TOP) / (k - 1) for i in range(k)]
+    order = sorted(range(k), key=lambda i: pico_pos(WIRES[i][2])[0] - j1_pos(WIRES[i][0])[0])
+    side = [SIDES[0]] * k
+    routes = {}
+
+    def build(i, pos):
+        routes[i] = route(WIRES[i][0], WIRES[i][2], ys[pos], side[i])
+
+    def total():
+        return sum(crossings(routes[a], routes[b]) for a in range(k) for b in range(a + 1, k))
+
+    for pos, i in enumerate(order):
+        build(i, pos)
+    cur = total()
+    best, best_state = cur, (order[:], side[:])
+    steps = 6000
+    for step in range(steps):
+        temp = 3.0 * (1 - step / steps) + 0.05
+        if rnd.random() < 0.6:
+            a, b = rnd.sample(range(k), 2)
+            order[a], order[b] = order[b], order[a]
+            build(order[a], a)
+            build(order[b], b)
+            t = total()
+            if t <= cur or rnd.random() < math.exp((cur - t) / temp):
+                cur = t
+            else:
+                order[a], order[b] = order[b], order[a]
+                build(order[a], a)
+                build(order[b], b)
+        else:
+            i = rnd.randrange(k)
+            old, side[i] = side[i], rnd.choice(SIDES)
+            build(i, order.index(i))
+            t = total()
+            if t <= cur or rnd.random() < math.exp((cur - t) / temp):
+                cur = t
+            else:
+                side[i] = old
+                build(i, order.index(i))
+        if cur < best:
+            best, best_state = cur, (order[:], side[:])
+    order, side = best_state
+    return {i: (ys[pos], side[i]) for pos, i in enumerate(order)}, best
+
+
 def svg():
     cols, rows = COLS, ROWS
     view = "bottom view, solder side" if BOTTOM else "top view"
@@ -90,20 +178,19 @@ def svg():
              'fill="#1f8a4c" opacity="0.45" stroke="#0d5e31"/>')
     o.append(f'<rect x="{ux}" y="{(py0 + py1) / 2 - 16}" width="34" height="32" rx="3" fill="#bbb" stroke="#666"/>')
     o.append(f'<text class="s" x="{ux + 2}" y="{(py0 + py1) / 2 + 4}">USB</text>')
-    o.append(f'<text class="t" x="{px0 + 60}" y="{(py0 + py1) / 2 + 4}" style="fill:#0d3d22">'
+    o.append(f'<text class="t" x="{px0}" y="{py1 + 62}" style="fill:#0d3d22">'
              f'Pico W (KA-0076), {"underside, USB to the right" if BOTTOM else "USB to the left"}</text>')
     # GND bridge on J1
     for a, b in zip(GND_BRIDGE, GND_BRIDGE[1:]):
         xa, ya = xy(*j1_pos(a))
         xb, yb = xy(*j1_pos(b))
         o.append(f'<line x1="{xa}" y1="{ya}" x2="{xb}" y2="{yb}" stroke="#777" stroke-width="5"/>')
-    # wires
-    for gpib, name, pico, grp in WIRES:
-        xa, ya = xy(*j1_pos(gpib))
-        xb, yb = xy(*pico_pos(pico))
-        cy = (ya + yb) / 2
-        o.append(f'<path d="M{xa},{ya} C{xa},{cy} {xb},{cy} {xb},{yb}" fill="none" stroke="{COLOURS[grp]}" '
-                 'stroke-width="2.4" opacity="0.9"/>')
+    # wires: a white halo under each one shows which wire passes over at a crossing
+    lane_of, n_cross = lanes()
+    for i, (gpib, name, pico, grp) in enumerate(WIRES):
+        d = "M" + " L".join("{:.1f},{:.1f}".format(*xy(c, r)) for c, r in route(gpib, pico, *lane_of[i]))
+        o.append(f'<path d="{d}" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="round"/>')
+        o.append(f'<path d="{d}" fill="none" stroke="{COLOURS[grp]}" stroke-width="2.6" stroke-linejoin="round"/>')
     # pads with numbers
     for pin in range(1, 25):
         x, y = xy(*j1_pos(pin))

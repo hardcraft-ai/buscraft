@@ -15,6 +15,8 @@ set(CMAKE_C_STANDARD 11)
 pico_sdk_init()
 
 set(BUSCRAFT_VERSION "0.1.0" CACHE STRING "Firmware version")
+option(BUSCRAFT_SWAP_NRFD_NDAC "NRFD on GP10 and NDAC on GP9, for a board wired with the two crossed" OFF)
+option(BUSCRAFT_SWAP_DAV_REN "DAV on GP15 and REN on GP8, for a board wired with the two crossed" OFF)
 option(BUSCRAFT_WIFI_POWERSAVE "Wi-Fi power saving (battery builds); off = lowest latency" OFF)
 
 add_executable(buscraft-pico
@@ -32,6 +34,8 @@ target_compile_definitions(buscraft-pico PRIVATE
     PICO_STDIO_DEFAULT_CRLF=0
     CYW43_HOST_NAME="buscraft"
     BUSCRAFT_WIFI_POWERSAVE=$<BOOL:${BUSCRAFT_WIFI_POWERSAVE}>
+    BUSCRAFT_SWAP_NRFD_NDAC=$<BOOL:${BUSCRAFT_SWAP_NRFD_NDAC}>
+    BUSCRAFT_SWAP_DAV_REN=$<BOOL:${BUSCRAFT_SWAP_DAV_REN}>
 )
 target_compile_options(buscraft-pico PRIVATE -Wall -Wextra -Wno-unused-parameter)
 target_link_libraries(buscraft-pico pico_stdlib pico_flash pico_cyw43_arch_lwip_poll pico_lwip_mdns
