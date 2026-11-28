@@ -38,3 +38,8 @@ Code is licensed under the [Apache License 2.0](LICENSE). Hardware design files 
 
 The repository contains original work only: no manuals, datasheets, vendor code or other copyrighted material, not even
 in part. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Security
+
+Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md). [docs/CRA.md](docs/CRA.md) maps the project
+to the EU Cyber Resilience Act requirements, for anyone building BusCraft into a product.
