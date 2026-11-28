@@ -43,5 +43,5 @@ in part. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Security
 
-Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md). [docs/CRA.md](docs/CRA.md) maps the project
-to the EU Cyber Resilience Act requirements, for anyone building BusCraft into a product.
+Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md). [docs/compliance.md](docs/compliance.md) maps the
+project to the EU Cyber Resilience Act, US and UK requirements, for anyone building BusCraft into a product.
