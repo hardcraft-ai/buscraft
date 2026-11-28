@@ -36,3 +36,6 @@ cargo build --release
 
 Code is licensed under the [Apache License 2.0](LICENSE). Hardware design files are licensed under
 [CERN-OHL-S-2.0](hw/LICENSE). Documentation and data are licensed under [CC BY 4.0](docs/LICENSE).
+
+The repository contains original work only: no manuals, datasheets, vendor code or other copyrighted material, not even
+in part. See [CONTRIBUTING.md](CONTRIBUTING.md).
