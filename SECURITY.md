@@ -25,4 +25,4 @@ notes. Updates are free.
 - Every release carries a software bill of materials (SBOM, CycloneDX) listing the third-party components and versions.
 - CI checks the dependencies against public vulnerability databases on every push and every night. A new finding opens
   an issue.
-- See [docs/CRA.md](docs/CRA.md) for how the project maps to the EU Cyber Resilience Act requirements.
+- See [docs/compliance.md](docs/compliance.md) for how the project maps to the EU Cyber Resilience Act, US and UK requirements.
