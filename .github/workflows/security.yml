@@ -1,0 +1,43 @@
+# Dependency vulnerability checks (CVE / RustSec / GitHub advisories): on every push and pull request, and nightly so
+# that newly published advisories against unchanged code are caught too. A nightly finding opens an issue.
+name: security
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "30 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: install cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: Rust crates
+        run: |
+          cargo audit -f client/Cargo.lock | tee audit-client.txt
+          cargo audit -f app/src-tauri/Cargo.lock | tee audit-app.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: npm packages
+        working-directory: app
+        run: npm audit --omit=dev | tee ../audit-npm.txt
+      - name: open an issue for a nightly finding
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Dependency vulnerability found $(date -u +%Y-%m-%d)"
+          { echo "The nightly dependency check failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; echo
+            for f in audit-*.txt; do [ -s "$f" ] && { echo "### $f"; echo '```'; tail -n 60 "$f"; echo '```'; }; done; } > body.md
+          gh issue create --repo "${{ github.repository }}" --title "$title" --body-file body.md --label security \
+            || gh issue create --repo "${{ github.repository }}" --title "$title" --body-file body.md

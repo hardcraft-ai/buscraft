@@ -99,7 +99,7 @@ Commands without an argument print the current value.
 
 ## Bluetooth LE
 
-The adapter advertises as `BusCraft` with one GATT service, the same as the STM32WBA firmware:
+The adapter advertises as `BusCraft` with one GATT service (UUIDs shared by all BusCraft firmware ports):
 
 | UUID | Characteristic | Use |
 |---|---|---|
