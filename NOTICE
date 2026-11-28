@@ -10,9 +10,6 @@ Firmware, Raspberry Pi Pico W (fw-pico/)
     includes lwIP (BSD-3-Clause), BTstack (BlueKitchen licence, free for use on RP2040/RP2350 via the SDK),
     Mbed TLS (Apache-2.0), cyw43-driver (licence for use on Raspberry Pi devices), TinyUSB (MIT)
 
-Firmware, STM32WBA (fw/)
-  STM32CubeWBA (pinned revision)        BSD-3-Clause and ST licence terms per component
-
 Client library, command line client and app (client/, app/)
   Rust crates from crates.io            see the SBOM; mainly MIT and Apache-2.0
   Tauri 2                               MIT or Apache-2.0
